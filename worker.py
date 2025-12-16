@@ -138,8 +138,6 @@ class DETRDetector:
             people_objects = []
             people_coordinates = []
 
-            logger.info("DEBUG NOTE")
-
             logger.info(
                 f"Detected {len(detections['scores'])} objects: "
                 f"{[self.class_names[i.item()] for i in detections['labels']]}",

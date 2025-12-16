@@ -4,7 +4,7 @@ metadata:
   name: detr-worker-config
   namespace: video-processing
 data:
-  KAFKA_BROKERS: "kafka-broker-0.kafka-headless:9092,kafka-broker-1.kafka-headless:9092,kafka-broker-2.kafka-headless:9092"
+  KAFKA_BROKERS: "kafka:9092"
   KAFKA_FRAME_TASK_TOPIC: "video-frames-tasks"
   KAFKA_DETECTION_RESULT_TOPIC: "detection-results"
   KAFKA_WORKER_GROUP: "detr-worker-group"
