@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: detr-worker-config
+  namespace: video-processing
+data:
+  KAFKA_BROKERS: "kafka-broker-0.kafka-headless:9092,kafka-broker-1.kafka-headless:9092,kafka-broker-2.kafka-headless:9092"
+  KAFKA_FRAME_TASK_TOPIC: "video-frames-tasks"
+  KAFKA_DETECTION_RESULT_TOPIC: "detection-results"
+  KAFKA_WORKER_GROUP: "detr-worker-group"
+  DETR_MODEL: "facebook/detr-resnet-50"
+  CONFIDENCE_THRESHOLD: "0.7"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: detr-worker
+  namespace: video-processing
+  labels:
+    app: detr-worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: detr-worker
+  template:
+    metadata:
+      labels:
+        app: detr-worker
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - detr-worker
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: detr-worker
+          image: localhost:5000/detr-worker:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: detr-worker-config
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+              nvidia.com/gpu: "1"  # Adjust based on your cluster
+            limits:
+              memory: "6Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import torch; print('OK')"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import torch; print('OK')"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/appuser/.cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: detr-worker
+  namespace: video-processing
+  labels:
+    app: detr-worker
+spec:
+  selector:
+    app: detr-worker
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  clusterIP: None
