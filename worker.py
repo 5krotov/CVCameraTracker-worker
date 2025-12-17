@@ -140,7 +140,7 @@ class DETRDetector:
 
             logger.info(
                 f"Detected {len(detections['scores'])} objects: "
-                f"{[self.class_names[i.item()] for i in detections['labels']]}",
+                f"{[self.class_names[i.item() - 1] for i in detections['labels']]}",
             )
 
             if len(detections['scores']) > 0:
